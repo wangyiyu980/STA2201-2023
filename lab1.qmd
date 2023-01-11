@@ -4,23 +4,72 @@ format: pdf
 editor: visual
 ---
 
-## Quarto
-
-Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
-
-## Running Code
-
-When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
-
 ```{r}
-1 + 1
+library(tidyverse)
 ```
 
-You can add options to executable code like this
-
 ```{r}
-#| echo: false
-2 * 2
+dm <- read_table("https://www.prdh.umontreal.ca/BDLC/data/ont/Mx_1x1.txt", skip = 2, col_types = "dcddd")
+head(dm)
 ```
 
-The `echo: false` option disables the printing of code (only output is displayed).
+# Lab Exercises
+
+1.  Plot the ratio of male to female mortality rates over time for ages 10,20,30 and 40 (different color for each age) and change the theme
+2.  Find the age that has the highest female mortality rate each year
+3.  Use the `summarize(across())` syntax to calculate the standard deviation of mortality rates by age for the Male, Female and Total populations.
+4.  The Canadian HMD also provides population sizes over time (https://www.prdh.umontreal.ca/BDLC/data/ont/Population.txt). Use these to calculate the population weighted average mortality rate separately for males and females, for every year. Make a nice line plot showing the result (with meaningful labels/titles) and briefly comment on what you see (1 sentence). Hint: `left_join` will probably be useful here.
+
+# Question 1
+
+```{r}
+dm <- dm |> 
+  mutate(mf_ratio = Male/Female)
+dp <- dm |> 
+  filter(Age==10|Age==20|Age==30|Age==40)
+dp |> 
+  ggplot(aes(x = Year, y = mf_ratio, color = Age)) + 
+  geom_line()+theme_bw()+  labs(y = "the ratio of male to female mortality rates")
+```
+
+# Question 2
+
+```{r}
+dm |>
+  group_by(Year)|>
+  slice(which.max(Female))|>
+  summarise(Age)
+
+```
+
+# Question 3
+
+```{r}
+dm |> 
+  group_by(Age) |> 
+  summarize(across(c(Male,Female,Total),sd))
+```
+
+# Question 4
+
+```{r}
+ddd <- read_table("https://www.prdh.umontreal.ca/BDLC/data/ont/Population.txt", skip = 2, col_types = "dcddd")
+```
+
+```{r}
+final <- left_join(dm,ddd,by = c("Year" = "Year", "Age" = "Age"))
+final<-final|>
+  group_by(Year)|>
+  mutate(total_fe = sum(Female.y),total_ma = sum(Male.y),weight_fe = Female.y/total_fe,weight_ma = Male.y/total_ma)|>
+  summarise(weighted.mean(Female.x,weight_fe,na.rm),weighted.mean(Male.x,weight_ma,na.rm))
+
+colnames(final)[2] = "female"
+colnames(final)[3] = "male"
+```
+
+```{R}
+final |> 
+  ggplot(aes(x = Year))+ geom_line(aes(y = female ), color ="darkred")+geom_line(aes(y = male),color="steelblue")+ theme_bw()+  labs(title = "The population weighted average mortality rate separately for males and females for every year",y = "Population weighted average mortality rate")
+```
+
+The male has a greater population weighted average mortality rate than females over every year.
