@@ -72,4 +72,4 @@ final |>
   ggplot(aes(x = Year))+ geom_line(aes(y = female ), color ="darkred")+geom_line(aes(y = male),color="steelblue")+ theme_bw()+  labs(title = "The population weighted average mortality rate separately for males and females for every year",y = "Population weighted average mortality rate")
 ```
 
-The male has a greater population weighted average mortality rate than females over every year.
+Comment: The male has a greater population weighted average mortality rate than females.
