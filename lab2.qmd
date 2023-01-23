@@ -1,0 +1,145 @@
+---
+title: "lab2"
+author: "Yiyu Wang"
+format: pdf
+editor: visual
+---
+
+```{r, warning=FALSE}
+library(opendatatoronto)
+library(tidyverse)
+library(stringr)
+library(skimr) # EDA
+library(visdat) # EDA
+library(janitor)
+library(lubridate)
+library(ggrepel)
+library(dplyr)
+```
+
+```{r data, warning=FALSE}
+res <- list_package_resources("996cfe8d-fb35-40ce-b569-698d51fc683b") # obtained code from searching data frame above
+res <- res |> mutate(year = str_extract(name, "202.?"))
+delay_2022_ids <- res |> filter(year==2022) |> select(id) |> pull()
+
+delay_2022 <- get_resource(delay_2022_ids)
+
+# make the column names nicer to work with
+delay_2022 <- clean_names(delay_2022)
+```
+
+# Question 1
+
+```{r}
+delay_2022_mean_delay <- delay_2022 |>
+  group_by(station)|>
+  summarise(mean(min_delay))
+delay_2022_mean_delay <- clean_names(delay_2022_mean_delay)
+head(arrange(delay_2022_mean_delay,desc(mean_min_delay),n=5))
+```
+
+the five stations with the highest mean delays is SHEPPARD WEST TO UNION, KIPLING TO JANE, MUSEUM TO EGLINTON STA,WILSON YARD HOSTLER 2 and VIADUCT.
+
+```{r, warning=FALSE}
+delay_2022|>
+  filter(station=='SHEPPARD WEST TO UNION'|station=='KIPLING TO JANE'|station=='MUSEUM TO EGLINTON STA'|station=='WILSON YARD HOSTLER 2'|station=="VIADUCT")|>
+  ggplot(aes(x=date,y=min_delay))+geom_line()+geom_point()
+```
+
+# Question 2
+
+```{r}
+all_data <- list_packages(limit = 500)
+all_data|>
+  filter(str_detect(title,pattern = "Campaign"))
+```
+
+The ID for 'Elections - Campaign Contributions - 2014 to 2017' is f6651a40-2f52-46fc-9e04-b760c16edd5c
+
+```{r}
+may <- list_package_resources("f6651a40-2f52-46fc-9e04-b760c16edd5c")
+may
+cap <- get_resource("5b230e92-0a22-4a15-9572-0b19cc222985")
+may_con_2014 <- cap[["2_Mayor_Contributions_2014_election.xls"]]
+```
+
+# Question 3
+
+```{r}
+colnames(may_con_2014)=may_con_2014[1,]
+may_con_2014<-may_con_2014[-1,]
+may_con_2014<-clean_names(may_con_2014)
+may_con_2014$contribution_amount<- as.numeric(may_con_2014$contribution_amount)
+
+```
+
+# Question 4
+
+```{r}
+may_con_2014 |> 
+  summarize(across(everything(), ~ sum(is.na(.x))))
+```
+
+There are a lot of missing variables in the dataset, but they are belong to contributors_address, good/servise description, relationship_to_candidate, president_business_manager, authorized_representative and ward, so we do not need to be worried about them. Every variable in the format it should be.
+
+# Question 5
+
+```{r}
+ggplot(may_con_2014,aes(x=contribution_amount))+geom_boxplot()
+may_con_2014|>
+  filter(contribution_amount>49999)
+may_con_2014_no <- may_con_2014|>
+  filter(contribution_amount<49999)
+ggplot(may_con_2014_no, aes(x=contribution_amount)) + geom_histogram()
+```
+
+There is 5 notable outliers. The outlier shows similar characteristic which is they are all come from Ford family to fund their own campaign. After removing the notable outlier, we can find that the majority of the contribution amount is below 2500.
+
+# Question 6
+
+## total contributions
+
+```{r }
+may_con_2014_total <- may_con_2014|>
+  group_by(contributors_name)|>
+  summarise(sum(contribution_amount))
+may_con_2014_total<-clean_names(may_con_2014_total)
+head(arrange(may_con_2014_total,desc(sum_contribution_amount)),n=5)
+```
+
+## mean contribution
+
+```{r }
+may_con_2014_mean <- may_con_2014|>
+  group_by(contributors_name)|>
+  summarise(mean(contribution_amount))
+may_con_2014_mean<-clean_names(may_con_2014_mean)
+head(arrange(may_con_2014_mean,desc(mean_contribution_amount)),n=5)
+```
+
+## number of contributions
+
+```{r }
+may_con_2014_count <- may_con_2014|>
+  group_by(contributors_name)|>
+  count(contributors_name)
+head(arrange(may_con_2014_count,desc(n)),n=5)
+```
+
+# Question 7
+
+```{r}
+may_con_2014|>
+  filter(!contributors_name==candidate)|>
+  ggplot(aes(x=contribution_amount)) +geom_histogram()
+```
+
+# Question 8
+
+```{r}
+contributor_name <-may_con_2014|>
+  group_by(contributors_name)|>
+  count(candidate)|>
+  get_dupes(contributors_name)
+length(unique(contributor_name$contributors_name))
+```
