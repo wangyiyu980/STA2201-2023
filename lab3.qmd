@@ -1,0 +1,76 @@
+---
+title: "lab3"
+format: pdf
+editor: visual
+---
+
+```{r, warning=FALSE}
+library(opendatatoronto)
+library(tidyverse)
+library(stringr)
+library(janitor)
+library(lubridate)
+library(ggrepel)
+library(dplyr)
+library(bayestestR)
+```
+
+# Question 1
+
+$Y|\theta$ \~ $Bin(n,\theta)$\
+likelihood function: $L(y,\theta,n)=\binom{n}{y}\theta^y(1-\theta)^{n-y}$\
+log-likelihood function: $l(y,\theta,n)=log(L)=log(\binom{n}{y}\theta^y(1-\theta)^{n-y})$ $=log\binom{n}{y}+log(\theta^y)+log((1-\theta)^{n-y})$ $=log\binom{n}{y}+ylog(\theta)+(n-y)log(1-\theta)$\
+take derivative respect to $\theta$ and set to 0:\
+$\frac{dl}{d\theta}=\frac{y}{\theta}-\frac{n-y}{1-\theta}=0$\
+$\hat{\theta}=\frac{y}{n}=\frac{118}{129}=0.91$\
+Fisher Information:\
+$I(\hat{\theta})=-E[l''(\hat{\theta})]=\frac{118}{0.91^2}+\frac{11}{(1-0.91)^2}=1500.52$\
+95% confidence interval:\
+$(\hat{\theta}-1.96\frac{1}{\sqrt{I(\hat{\theta})}},\hat{\theta}+1.96\frac{1}{\sqrt{I(\hat{\theta})}})$\
+$(0.91-0.05,0.91+0.05)$\
+$(0.86, 0.96)$
+
+# Question 2
+
+$\theta$ \~$beta(1,1)$\
+$p(\theta)=\frac{\gamma(1+1)}{\gamma(1)\gamma(1)}\theta^{1-1}(1-\theta)^{1-1}=1$\
+$p(\theta|y)=\frac{p(y|\theta)p(\theta)}{p(y)}=\frac{p(y|\theta)p(\theta)}{\int p(y|\theta')d\theta'}$\
+$=\frac{\binom{n}{y}\theta^y(1-\theta)^{n-y}}{\int_{0}{1}\binom{n}{y}\theta'^y(1-\theta')^{n-y}d\theta'}$\
+$=\frac{1}{Z}\theta^y(1-\theta)^{n-y}$, where $Z = \frac{\gamma(y+1)\gamma(n-y+1)}{\gamma(n+2)}$\
+the posterior distribution is :\
+$\theta|y$\~$Beta(y+1,n-y+1)$\
+The posterior mean:\
+$E(θ|y)=\frac{y+1}{y+1+n-y+1}=\frac{y+1}{n+2}=\frac{118+1}{129+2}=0.91$\
+95% Credible interval:
+
+```{r}
+posterior <- distribution_beta(1000, 119, 12)
+ci_eti <- ci(posterior, method = "ETI")
+ci_eti
+```
+
+# Question 3
+
+$\theta$ \~$beta(10,10)$\
+interpretation: my subjective beliefs about the parameter $\theta$ is distributed $beta(10,10)$.\
+we assuming we know more amount of information as the prior used in Question 2, since the the prior in Question 2 is uniform, and contain no information.
+
+# Question 4
+
+black: The likelihood\
+red,dashed: The prior distribution of prior beta(1,1)\
+red,solid: The posteriors distribution of prior beta(1,1)\
+blue, dashed: The prior distribution of prior beta(10,10)\
+blue, dahsed: The posteriors distribution of prior beta(10,10)
+
+```{r}
+p = seq(from = 0, to =1, by = 0.001)
+data = data.frame(theta=p,ptheta=dbinom(118, size = 129, p))
+ggplot(data, aes(x=theta,y=ptheta))+geom_line()+stat_function(fun=dbeta, args=list(shape1=1, shape2=1),color="red",linetype = "dashed")+stat_function(fun=dbeta, args=list(shape1=119, shape2=12),color="red")+stat_function(fun=dbeta, args=list(shape1=10, shape2=10),color="blue",linetype = "dashed")+stat_function(fun=dbeta, args=list(shape1=128, shape2=21),color="blue")
+```
+
+# Question 5
+
+A noninformative prior: has distribution which is flat over the entire real number line and contain no information, for example, uniform distribution.
+
+A subjective/informative prior based on your best knowledge: has a distribution which containing specific, unambiguous information about the variable, for example, based on the distribution of the average improvement in success probability.
