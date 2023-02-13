@@ -1,0 +1,181 @@
+---
+title: "lab5"
+date: today
+date-format: "DD/MM/YY"
+format: pdf
+execute: 
+  warning: false
+  message: false
+---
+
+```{r}
+library(tidyverse)
+library(rstan)
+library(tidybayes)
+library(here)
+```
+
+```{r}
+kidiq <- read_rds(here("data","kidiq.RDS"))
+kidiq
+```
+
+## Question 1
+
+```{r}
+boxplot(kid_score ~mom_hs , data = kidiq)
+```
+
+The first interest point is that the status of mother's completion of high school is a binary data 0 and 1. Based on the box plot, the children of mothers who completed high school scored higher than children of mothers who did not.
+
+```{r}
+ggplot(kidiq,aes(x=mom_iq,y=kid_score))+geom_point()+geom_smooth(method='lm')
+```
+
+The second interest point is that the kid score increases as the their mom's iq increases.
+
+```{r}
+ggplot(kidiq,aes(x=mom_age,y=kid_score))+geom_point()+geom_smooth(method='lm')
+```
+
+The third interest point is that the kid score do not have strong relationship with the their mom's age.
+
+## Question 2
+
+```{r}
+y <- kidiq$kid_score
+mu0 <- 80
+sigma1 <- 0.1
+```
+
+```{r}
+data1 <- list(y = y, 
+             N = length(y), 
+             mu0 = mu0,
+             sigma0 = sigma1)
+```
+
+```{r}
+fit1 <- stan(file = here("code/models/kids2.stan"),
+            data = data1,
+            chains = 3,
+            iter = 500)
+```
+
+```{r}
+fit1
+```
+The estimated coefficients of fit1 model is mu 80.06 and sigma 21.44. Comparing to fit model(mu 86.74 sigma 20.40), the mu value decreased and the sigma value slightly increased.
+
+```{r}
+dsamples <- fit1  |> 
+  gather_draws(mu, sigma) # gather = long format
+```
+
+```{r}
+dsamples |> 
+  filter(.variable == "mu") |> 
+  ggplot(aes(.value, color = "posterior")) + geom_density(size = 1) + 
+  xlim(c(79, 81)) + 
+  stat_function(fun = dnorm, 
+        args = list(mean = mu0, 
+                    sd = sigma1), 
+        aes(colour = 'prior'), size = 1) +
+  scale_color_manual(name = "", values = c("prior" = "red", "posterior" = "black")) + 
+  ggtitle("Prior and posterior for mean test scores") + 
+  xlab("score")
+```
+
+## Question 3
+
+```{r}
+X <- as.matrix(kidiq$mom_hs, ncol = 1) # force this to be a matrix
+K <- 1
+
+data <- list(y = y, N = length(y), 
+             X =X, K = K)
+fit2 <- stan(file = here("code/models/kids3.stan"),
+            data = data, 
+            iter = 1000)
+```
+
+```{r}
+summary(lm(kid_score~mom_hs,data = kidiq))
+```
+
+(a) The coefficients of fit2 is alpha 77.773 beta\[1\] 11.47.\
+    The coefficients of lm() model is (Intercept) 77.548 and mom_hs 11.771. Their value are very close to each other.
+
+```{r}
+pairs(fit2, pars = c("alpha", "beta[1]"))
+```
+
+(b) There is a large variation in alpha and beta\[1\], it would make the sampling harder.
+
+## Question 4
+
+```{r}
+center_scale <- function(x) {
+    scale(x, scale = FALSE)
+}
+```
+
+```{r}
+X4 <- cbind(X,center_scale(kidiq$mom_iq)) # force this to be a matrix
+K4 <- 2
+data4 <- list(y = y, N = length(y), 
+             X =X4, K = K4)
+fit4 <- stan(file = here("code/models/kids3.stan"),
+            data = data4, 
+            iter = 1000)
+```
+
+```{r}
+fit4
+```
+
+Fixed the mother completing high school status, For every 1 increase in IQ, the child's score increases by 0.57; Fixed the mother's IQ, Children of mothers who completed high school scored 5.63 higher than children of mothers who did not.
+
+## Question 5
+
+```{r}
+summary(lm(kid_score~mom_hs+center_scale(mom_iq),data=kidiq))
+```
+
+The coefficients of fit4 is alpha 82.36 beta\[1\] 5.63 beta\[2\] 0.57.\
+The coefficients of lm() model is (Intercept) 82.122 mom_hs 5.95 and center_scale(mom_iq) 0.564. Their value are very close to each other.
+
+## Question 6
+
+```{r}
+IQ6 = 110- mean(kidiq$mom_iq)
+```
+
+```{r}
+pivot_wider(spread_draws(fit4,alpha, beta[k], sigma),names_from = k,names_prefix = "beta",values_from = beta)
+```
+
+```{r}
+fit4 |>
+  spread_draws(alpha, beta[k], sigma) |> 
+  pivot_wider(names_from = k,names_prefix = "beta",values_from = beta)|>
+  mutate(nhs = alpha+0*beta1+IQ6*beta2, # no high school is just the intercept
+          hs = alpha + 1*beta1 + IQ6*beta2) |> 
+  select(nhs, hs) |> 
+  pivot_longer(nhs:hs, names_to = "education", values_to = "estimated_score") |> 
+  ggplot(aes(y = education, x = estimated_score)) +
+  stat_halfeye() + 
+  theme_bw() + 
+  ggtitle("Posterior estimates of scores by education level of mother")
+  
+```
+
+## Question 7
+
+```{r}
+IQ7 = 95-mean(kidiq$mom_iq)
+post_samples4 <- extract(fit4)
+prediction <- post_samples4[["alpha"]]+post_samples4[["beta"]][,1]*1+post_samples4[["beta"]][,2]*IQ7
+y4 <- rnorm(mean= prediction, sd = post_samples4[['sigma']],n=2000)
+hist(y4)
+```
