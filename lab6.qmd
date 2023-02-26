@@ -52,13 +52,13 @@ The third interest point is that as the gestational age increases, the birth wei
 set.seed(100)
 nsims <- 1000
 sigma <- rnorm(nsims, 0, 1)
-beta0 <- rnorm(nsims, 0, 1)
 beta1 <- rnorm(nsims, 0, 1)
+beta2 <- rnorm(nsims, 0, 1)
 
 dsims <- tibble(log_gest_c = (log(ds$gest)-mean(log(ds$gest)))/sd(log(ds$gest)))
 
 for(i in 1:nsims){
-  this_mu <- beta0[i] + beta1[i]*dsims$log_gest_c 
+  this_mu <- beta1[i] + beta2[i]*dsims$log_gest_c 
   dsims[paste0(i)] <- this_mu + rnorm(nrow(dsims), 0, sigma[i])
 }
 
@@ -108,9 +108,9 @@ summary(mod1)$summary[c("beta[1]", "beta[2]", "sigma"),]
 
 ```{r}
 est_37 <- (log(37)-mean(log(ds$gest)))/sd(log(ds$gest))
-est_beta0 <- 1.1624783
-est_beta1 <- 0.1437529
-exp(est_beta0+est_beta1*est_37)
+est_beta1 <- 1.1624783
+est_beta2 <- 0.1437529
+exp(est_beta1+est_beta2*est_37)
 ```
 
 ## Question 4
